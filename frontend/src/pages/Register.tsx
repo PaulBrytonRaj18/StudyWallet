@@ -1,25 +1,30 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRegister } from "@/hooks/useAuth";
 import { useThemeStore } from "@/store/themeStore";
 import { Moon, Sun, BookOpen } from "lucide-react";
+import { FormField } from "@/components/ui/form";
+import { registerSchema, type RegisterInput } from "@/lib/validation";
 
 export function Register() {
-  const [form, setForm] = useState({ email: "", username: "", password: "", full_name: "" });
-  const register = useRegister();
+  const registerMutation = useRegister();
   const { isDark, toggle } = useThemeStore();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+    mode: "onChange",
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    register.mutate(form);
+  const onSubmit = (data: RegisterInput) => {
+    registerMutation.mutate(data);
   };
-
-  const updateField = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -40,28 +45,73 @@ export function Register() {
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>Start organizing your studies</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full Name (optional)</Label>
-              <Input id="full_name" placeholder="John Doe" value={form.full_name} onChange={updateField("full_name")} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" placeholder="johndoe" value={form.username} onChange={updateField("username")} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" value={form.email} onChange={updateField("email")} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={form.password} onChange={updateField("password")} required />
-            </div>
+            <FormField<RegisterInput>
+              label="Full Name (optional)"
+              name="full_name"
+              register={register}
+              errors={errors}
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  placeholder="John Doe"
+                  {...register("full_name")}
+                />
+              )}
+            </FormField>
+            <FormField<RegisterInput>
+              label="Username"
+              name="username"
+              register={register}
+              errors={errors}
+              required
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  placeholder="johndoe"
+                  {...register("username")}
+                />
+              )}
+            </FormField>
+            <FormField<RegisterInput>
+              label="Email"
+              name="email"
+              register={register}
+              errors={errors}
+              required
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  type="email"
+                  placeholder="m@example.com"
+                  {...register("email")}
+                />
+              )}
+            </FormField>
+            <FormField<RegisterInput>
+              label="Password"
+              name="password"
+              register={register}
+              errors={errors}
+              required
+              hint="Min 8 chars, uppercase, lowercase, digit, special character"
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  type="password"
+                  {...register("password")}
+                />
+              )}
+            </FormField>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={register.isPending}>
-              {register.isPending ? "Creating account..." : "Create account"}
+            <Button type="submit" className="w-full" disabled={!isValid || registerMutation.isPending}>
+              {registerMutation.isPending ? "Creating account..." : "Create account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}

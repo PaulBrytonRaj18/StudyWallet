@@ -1,44 +1,88 @@
-from pydantic import BaseModel, Field
+from uuid import UUID
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
+from app.constants.enums import (
+    ResourceType,
+    ResourceStatus,
+    Importance,
+    RESOURCE_TYPE_VALUES,
+    RESOURCE_STATUS_VALUES,
+    IMPORTANCE_VALUES,
+)
 
 
 class ResourceCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=255)
+    title: str
     description: Optional[str] = None
-    resource_type: str = Field(..., pattern=r"^(pdf|chatgpt_link|youtube_link|note)$")
-    status: str = Field(default="not_started", pattern=r"^(not_started|studying|completed|revision_pending)$")
-    importance: str = Field(default="normal", pattern=r"^(normal|important|very_important)$")
+    resource_type: str
+    status: str = ResourceStatus.NOT_STARTED.value
+    importance: str = Importance.NORMAL.value
     url: Optional[str] = None
     subject_id: str
     chapter_id: Optional[str] = None
     tags: Optional[list[str]] = []
 
+    @field_validator("resource_type")
+    @classmethod
+    def validate_resource_type(cls, v: str) -> str:
+        if v not in RESOURCE_TYPE_VALUES:
+            raise ValueError(f"Invalid resource_type '{v}'")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in RESOURCE_STATUS_VALUES:
+            raise ValueError(f"Invalid status '{v}'")
+        return v
+
+    @field_validator("importance")
+    @classmethod
+    def validate_importance(cls, v: str) -> str:
+        if v not in IMPORTANCE_VALUES:
+            raise ValueError(f"Invalid importance '{v}'")
+        return v
+
 
 class ResourceUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    title: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = Field(None, pattern=r"^(not_started|studying|completed|revision_pending)$")
-    importance: Optional[str] = Field(None, pattern=r"^(normal|important|very_important)$")
+    status: Optional[str] = None
+    importance: Optional[str] = None
     url: Optional[str] = None
     chapter_id: Optional[str] = None
     tags: Optional[list[str]] = None
 
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in RESOURCE_STATUS_VALUES:
+            raise ValueError(f"Invalid status '{v}'")
+        return v
+
+    @field_validator("importance")
+    @classmethod
+    def validate_importance(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in IMPORTANCE_VALUES:
+            raise ValueError(f"Invalid importance '{v}'")
+        return v
+
 
 class ResourceResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     description: Optional[str] = None
-    resource_type: str
-    status: str
-    importance: str
+    resource_type: ResourceType
+    status: ResourceStatus
+    importance: Importance
     url: Optional[str] = None
     pdf_url: Optional[str] = None
     file_name: Optional[str] = None
     file_size: Optional[int] = None
-    user_id: str
-    subject_id: str
-    chapter_id: Optional[str] = None
+    user_id: UUID
+    subject_id: UUID
+    chapter_id: Optional[UUID] = None
     tags: list[str] = []
     created_at: datetime
     updated_at: datetime
@@ -53,10 +97,10 @@ class ResourceListResponse(BaseModel):
 
 
 class PDFUploadResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     pdf_url: str
     file_name: str
     file_size: int
-    resource_type: str = "pdf"
+    resource_type: ResourceType = ResourceType.PDF
     message: str = "PDF uploaded successfully"

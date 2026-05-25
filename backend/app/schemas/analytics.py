@@ -1,6 +1,8 @@
+from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from app.constants.enums import ResourceType, ResourceStatus
 
 
 class DashboardStats(BaseModel):
@@ -16,9 +18,9 @@ class DashboardStats(BaseModel):
 
 
 class RecentUpload(BaseModel):
-    id: str
+    id: UUID
     title: str
-    resource_type: str
+    resource_type: ResourceType
     subject_name: Optional[str] = None
     created_at: datetime
 
@@ -27,7 +29,7 @@ class RecentUpload(BaseModel):
 
 
 class SubjectProgress(BaseModel):
-    subject_id: str
+    subject_id: UUID
     subject_name: str
     color: str
     total: int
@@ -36,7 +38,7 @@ class SubjectProgress(BaseModel):
 
 
 class ProgressByStatus(BaseModel):
-    status: str
+    status: ResourceStatus
     count: int
 
 

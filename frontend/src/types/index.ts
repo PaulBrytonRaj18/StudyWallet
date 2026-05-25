@@ -1,3 +1,8 @@
+import type { ResourceType, ResourceStatus, Importance } from "@/constants/enums";
+
+export type { ResourceType, ResourceStatus, Importance };
+export type { LoginInput, RegisterInput, SubjectCreateInput, ChapterCreateInput, NoteCreateInput, NoteUpdateInput, ResourceCreateInput } from "@/lib/validation";
+
 export interface User {
   id: string;
   email: string;
@@ -41,10 +46,6 @@ export interface Chapter {
   resource_count?: number;
 }
 
-export type ResourceType = "pdf" | "chatgpt_link" | "youtube_link" | "note";
-export type ResourceStatus = "not_started" | "studying" | "completed" | "revision_pending";
-export type Importance = "normal" | "important" | "very_important";
-
 export interface Resource {
   id: string;
   title: string;
@@ -80,9 +81,9 @@ export interface SearchResult {
   id: string;
   title: string;
   description: string | null;
-  resource_type: string;
-  status: string;
-  importance: string;
+  resource_type: ResourceType;
+  status: ResourceStatus;
+  importance: Importance;
   url: string | null;
   pdf_url: string | null;
   subject_name: string | null;
@@ -106,7 +107,7 @@ export interface DashboardStats {
 export interface RecentUpload {
   id: string;
   title: string;
-  resource_type: string;
+  resource_type: ResourceType;
   subject_name: string | null;
   created_at: string;
 }
@@ -121,7 +122,7 @@ export interface SubjectProgress {
 }
 
 export interface ProgressByStatus {
-  status: string;
+  status: ResourceStatus;
   count: number;
 }
 

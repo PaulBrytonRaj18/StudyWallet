@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import UploadFile, HTTPException, status
-from app.models.resource import Resource, ResourceTag, ResourceStatus, Importance
+from app.models.resource import Resource, ResourceTag
+from app.constants.enums import ResourceType, ResourceStatus, Importance, IMPORTANCE_VALUES
 from app.models.subject import Subject
 from app.utils.supabase import upload_pdf_to_storage, delete_pdf_from_storage, get_signed_url
 
@@ -18,8 +19,13 @@ class PDFService:
         chapter_id: str = None,
         description: str = None,
         tags: list[str] = None,
-        importance: str = "normal",
+        importance: str = Importance.NORMAL.value,
     ) -> Resource:
+        if importance not in IMPORTANCE_VALUES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid importance '{importance}'. Must be one of: {', '.join(sorted(IMPORTANCE_VALUES))}",
+            )
         subject = (
             self.db.query(Subject)
             .filter(Subject.id == subject_id, Subject.user_id == user_id)
@@ -36,7 +42,7 @@ class PDFService:
         resource = Resource(
             title=title,
             description=description,
-            resource_type="pdf",
+            resource_type=ResourceType.PDF.value,
             status=ResourceStatus.NOT_STARTED,
             importance=importance,
             pdf_url=pdf_url,
@@ -65,7 +71,7 @@ class PDFService:
             .filter(
                 Resource.id == resource_id,
                 Resource.user_id == user_id,
-                Resource.resource_type == "pdf",
+                Resource.resource_type == ResourceType.PDF.value,
             )
             .first()
         )
@@ -96,7 +102,7 @@ class PDFService:
             .filter(
                 Resource.id == resource_id,
                 Resource.user_id == user_id,
-                Resource.resource_type == "pdf",
+                Resource.resource_type == ResourceType.PDF.value,
             )
             .first()
         )

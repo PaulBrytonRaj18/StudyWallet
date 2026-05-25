@@ -1,36 +1,20 @@
-import re
-from pydantic import BaseModel, Field, field_validator
+from uuid import UUID
+from pydantic import BaseModel, Field, field_validator, EmailStr
 from typing import Optional
 from datetime import datetime
-from app.config import settings
 
 
 class RegisterRequest(BaseModel):
-    email: str = Field(..., pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
-    username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
-    password: str = Field(..., min_length=8, max_length=128)
+    email: EmailStr
+    username: str
+    password: str
     full_name: Optional[str] = Field(None, max_length=255)
 
-    @field_validator("password")
+    @field_validator("full_name", mode="before")
     @classmethod
-    def validate_password_strength(cls, v: str) -> str:
-        if len(v) < settings.MIN_PASSWORD_LENGTH:
-            raise ValueError(f"Password must be at least {settings.MIN_PASSWORD_LENGTH} characters")
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain an uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain a lowercase letter")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain a digit")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-]', v):
-            raise ValueError("Password must contain a special character")
-        return v
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: str) -> str:
-        if v.lower() in {"admin", "root", "system", "studywallet", "api", "user", "test"}:
-            raise ValueError("This username is reserved")
+    def coerce_empty_full_name(cls, v: object) -> object:
+        if v == "":
+            return None
         return v
 
 
@@ -50,7 +34,7 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     email: str
     username: str
     full_name: Optional[str] = None
@@ -69,19 +53,4 @@ class AuthResponse(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=8, max_length=128)
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_password_strength(cls, v: str) -> str:
-        if len(v) < settings.MIN_PASSWORD_LENGTH:
-            raise ValueError(f"Password must be at least {settings.MIN_PASSWORD_LENGTH} characters")
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain an uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain a lowercase letter")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain a digit")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-]', v):
-            raise ValueError("Password must contain a special character")
-        return v
+    new_password: str

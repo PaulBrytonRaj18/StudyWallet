@@ -20,6 +20,7 @@ from app.middleware.error_handler import (
     validation_exception_handler,
     http_exception_handler,
     general_exception_handler,
+    db_enum_exception_handler,
 )
 
 logging.basicConfig(
@@ -39,6 +40,10 @@ logger.info("Starting StudyWallet in %s mode", "production" if settings.PRODUCTI
 async def lifespan(app: FastAPI):
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
+
+    from app.constants.enums import check_enum_consistency
+    check_enum_consistency(engine)
+
     yield
     logger.info("Shutting down gracefully...")
 
@@ -58,6 +63,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+
+from sqlalchemy.exc import DataError
+app.add_exception_handler(DataError, db_enum_exception_handler)
+
 app.add_exception_handler(Exception, general_exception_handler)
 
 app.add_middleware(

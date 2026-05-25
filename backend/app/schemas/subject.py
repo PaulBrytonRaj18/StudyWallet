@@ -1,29 +1,30 @@
-from pydantic import BaseModel, Field
+from uuid import UUID
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 
 class SubjectCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
+    name: str
     description: Optional[str] = None
-    color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
-    icon: str = Field(default="book", max_length=50)
+    color: str = "#6366f1"
+    icon: str = "book"
 
 
 class SubjectUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    name: Optional[str] = None
     description: Optional[str] = None
-    color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
-    icon: Optional[str] = Field(None, max_length=50)
+    color: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class SubjectResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
     color: str
     icon: str
-    user_id: str
+    user_id: UUID
     created_at: datetime
     updated_at: datetime
     chapter_count: Optional[int] = 0

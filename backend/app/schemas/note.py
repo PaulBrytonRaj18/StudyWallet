@@ -1,10 +1,11 @@
-from pydantic import BaseModel, Field
+from uuid import UUID
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 
 class NoteCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=255)
+    title: str
     content: Optional[str] = None
     is_markdown: bool = True
     subject_id: Optional[str] = None
@@ -12,7 +13,7 @@ class NoteCreate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    title: Optional[str] = None
     content: Optional[str] = None
     is_markdown: Optional[bool] = None
     subject_id: Optional[str] = None
@@ -20,13 +21,13 @@ class NoteUpdate(BaseModel):
 
 
 class NoteResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     content: Optional[str] = None
     is_markdown: bool
-    user_id: str
-    subject_id: Optional[str] = None
-    chapter_id: Optional[str] = None
+    user_id: UUID
+    subject_id: Optional[UUID] = None
+    chapter_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

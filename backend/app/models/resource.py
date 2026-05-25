@@ -1,30 +1,10 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from app.database import Base
-import enum
-
-
-class ResourceType(str, enum.Enum):
-    PDF = "pdf"
-    CHATGPT_LINK = "chatgpt_link"
-    YOUTUBE_LINK = "youtube_link"
-    NOTE = "note"
-
-
-class ResourceStatus(str, enum.Enum):
-    NOT_STARTED = "not_started"
-    STUDYING = "studying"
-    COMPLETED = "completed"
-    REVISION_PENDING = "revision_pending"
-
-
-class Importance(str, enum.Enum):
-    NORMAL = "normal"
-    IMPORTANT = "important"
-    VERY_IMPORTANT = "very_important"
+from app.database import Base, PgEnum
+from app.constants.enums import ResourceType, ResourceStatus, Importance
 
 
 class Resource(Base):
@@ -33,9 +13,9 @@ class Resource(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    resource_type = Column(SAEnum(ResourceType), nullable=False, index=True)
-    status = Column(SAEnum(ResourceStatus), default=ResourceStatus.NOT_STARTED, index=True)
-    importance = Column(SAEnum(Importance), default=Importance.NORMAL)
+    resource_type = Column(PgEnum(ResourceType), nullable=False, index=True)
+    status = Column(PgEnum(ResourceStatus), default=ResourceStatus.NOT_STARTED, index=True)
+    importance = Column(PgEnum(Importance), default=Importance.NORMAL)
 
     url = Column(String(1000), nullable=True)
     pdf_url = Column(String(1000), nullable=True)

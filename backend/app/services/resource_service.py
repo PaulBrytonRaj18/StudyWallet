@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.resource import Resource, ResourceTag, ResourceType, ResourceStatus, Importance
+from app.models.resource import Resource, ResourceTag
 from app.models.subject import Subject
 from app.models.chapter import Chapter
+from app.constants.enums import ResourceType, ResourceStatus, Importance
 from app.schemas.resource import ResourceCreate, ResourceUpdate, ResourceResponse
 
 

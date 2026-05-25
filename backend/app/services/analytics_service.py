@@ -3,6 +3,7 @@ from sqlalchemy import func
 from app.models.resource import Resource
 from app.models.subject import Subject
 from app.models.note import Note
+from app.constants.enums import ResourceStatus, ResourceType
 from app.schemas.analytics import (
     DashboardStats,
     RecentUpload,
@@ -24,23 +25,23 @@ class AnalyticsService:
         total_resources = resources_query.count()
 
         completed_resources = resources_query.filter(
-            Resource.status == "completed"
+            Resource.status == ResourceStatus.COMPLETED.value
         ).count()
 
         revision_pending = resources_query.filter(
-            Resource.status == "revision_pending"
+            Resource.status == ResourceStatus.REVISION_PENDING.value
         ).count()
 
         studying_resources = resources_query.filter(
-            Resource.status == "studying"
+            Resource.status == ResourceStatus.STUDYING.value
         ).count()
 
         not_started = resources_query.filter(
-            Resource.status == "not_started"
+            Resource.status == ResourceStatus.NOT_STARTED.value
         ).count()
 
         pdf_count = resources_query.filter(
-            Resource.resource_type == "pdf"
+            Resource.resource_type == ResourceType.PDF.value
         ).count()
 
         total_notes = (
@@ -78,7 +79,7 @@ class AnalyticsService:
                 Subject.color,
                 func.count(Resource.id).label("total"),
                 func.count(Resource.id)
-                .filter(Resource.status == "completed")
+                .filter(Resource.status == ResourceStatus.COMPLETED.value)
                 .label("completed"),
             )
             .outerjoin(Resource, Resource.subject_id == Subject.id)

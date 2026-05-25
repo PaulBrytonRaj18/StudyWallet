@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from "@/hooks/useNotes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +26,8 @@ import { Plus, StickyNote, Trash2, Edit, Eye, EyeOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import { useSubjects } from "@/hooks/useSubjects";
+import { FormField } from "@/components/ui/form";
+import { noteCreateSchema, noteUpdateSchema, type NoteCreateInput, type NoteUpdateInput } from "@/lib/validation";
 
 export function Notes() {
   const { data, isLoading } = useNotes();
@@ -35,35 +38,41 @@ export function Notes() {
   const [open, setOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    content: "",
-    subject_id: "",
-    chapter_id: "",
-  });
 
   const subjects = subjectsData?.subjects || [];
   const notes = data?.notes || [];
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createNote.mutate(form, {
+  const createForm = useForm<NoteCreateInput>({
+    resolver: zodResolver(noteCreateSchema),
+    mode: "onChange",
+    defaultValues: { title: "", content: "", subject_id: "", chapter_id: "" },
+  });
+
+  const editForm = useForm<NoteUpdateInput>({
+    resolver: zodResolver(noteUpdateSchema),
+    mode: "onChange",
+    defaultValues: { title: "", content: "" },
+  });
+
+  const handleCreate = (formData: NoteCreateInput) => {
+    createNote.mutate(formData, {
       onSuccess: () => {
         setOpen(false);
-        setForm({ title: "", content: "", subject_id: "", chapter_id: "" });
+        createForm.reset();
         setPreviewMode(false);
       },
     });
   };
 
   const handleUpdate = (id: string) => {
-    updateNote.mutate({ id, data: { title: form.title, content: form.content } });
+    const data = editForm.getValues();
+    updateNote.mutate({ id, data: { title: data.title, content: data.content } });
     setEditingNote(null);
   };
 
   const startEdit = (note: any) => {
     setEditingNote(note.id);
-    setForm({ title: note.title, content: note.content || "", subject_id: note.subject_id || "", chapter_id: "" });
+    editForm.reset({ title: note.title, content: note.content || "" });
     setPreviewMode(false);
   };
 
@@ -82,15 +91,28 @@ export function Notes() {
             <DialogHeader>
               <DialogTitle>Create Note</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreate} className="flex-1 flex flex-col space-y-4 overflow-hidden">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-              </div>
+            <form onSubmit={createForm.handleSubmit(handleCreate)} className="flex-1 flex flex-col space-y-4 overflow-hidden">
+              <FormField<NoteCreateInput>
+                label="Title"
+                name="title"
+                register={createForm.register}
+                errors={createForm.formState.errors}
+                required
+              >
+                {(fieldProps) => (
+                  <Input
+                    {...fieldProps}
+                    {...createForm.register("title")}
+                  />
+                )}
+              </FormField>
               <div className="flex gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label>Subject (optional)</Label>
-                  <Select value={form.subject_id} onValueChange={(v) => setForm({ ...form, subject_id: v })}>
+                  <label className="text-sm font-medium leading-none">Subject (optional)</label>
+                  <Select
+                    value={createForm.watch("subject_id") || ""}
+                    onValueChange={(v) => createForm.setValue("subject_id", v || undefined)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
@@ -105,7 +127,7 @@ export function Notes() {
               </div>
               <div className="flex-1 flex flex-col space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Content (Markdown)</Label>
+                  <label className="text-sm font-medium leading-none">Content (Markdown)</label>
                   <Button
                     type="button"
                     variant="ghost"
@@ -118,18 +140,17 @@ export function Notes() {
                 </div>
                 {previewMode ? (
                   <div className="flex-1 overflow-y-auto rounded-md border p-4 prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{form.content}</ReactMarkdown>
+                    <ReactMarkdown>{createForm.watch("content") || ""}</ReactMarkdown>
                   </div>
                 ) : (
                   <Textarea
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
+                    {...createForm.register("content")}
                     className="flex-1 min-h-[300px] font-mono text-sm"
                     placeholder="Write your notes in markdown..."
                   />
                 )}
               </div>
-              <Button type="submit" disabled={createNote.isPending}>
+              <Button type="submit" disabled={!createForm.formState.isValid || createNote.isPending}>
                 {createNote.isPending ? "Creating..." : "Create Note"}
               </Button>
             </form>
@@ -196,13 +217,23 @@ export function Notes() {
             <DialogTitle>Edit Note</DialogTitle>
           </DialogHeader>
           <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </div>
+            <FormField<NoteUpdateInput>
+              label="Title"
+              name="title"
+              register={editForm.register}
+              errors={editForm.formState.errors}
+              required
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  {...editForm.register("title")}
+                />
+              )}
+            </FormField>
             <div className="flex-1 flex flex-col space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Content</Label>
+                <label className="text-sm font-medium leading-none">Content</label>
                 <Button variant="ghost" size="sm" onClick={() => setPreviewMode(!previewMode)}>
                   {previewMode ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
                   {previewMode ? "Edit" : "Preview"}
@@ -210,17 +241,16 @@ export function Notes() {
               </div>
               {previewMode ? (
                 <div className="flex-1 overflow-y-auto rounded-md border p-4 prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{form.content}</ReactMarkdown>
+                  <ReactMarkdown>{editForm.watch("content") || ""}</ReactMarkdown>
                 </div>
               ) : (
                 <Textarea
-                  value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  {...editForm.register("content")}
                   className="flex-1 min-h-[300px] font-mono text-sm"
                 />
               )}
             </div>
-            <Button onClick={() => editingNote && handleUpdate(editingNote)} disabled={updateNote.isPending}>
+            <Button onClick={() => editingNote && handleUpdate(editingNote)} disabled={!editForm.formState.isValid || updateNote.isPending}>
               {updateNote.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>

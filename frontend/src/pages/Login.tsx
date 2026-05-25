@@ -1,22 +1,29 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLogin } from "@/hooks/useAuth";
 import { useThemeStore } from "@/store/themeStore";
 import { Moon, Sun, BookOpen } from "lucide-react";
+import { FormField } from "@/components/ui/form";
+import { loginSchema, type LoginInput } from "@/lib/validation";
 
 export function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const login = useLogin();
   const { isDark, toggle } = useThemeStore();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    mode: "onChange",
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login.mutate({ email, password });
+  const onSubmit = (data: LoginInput) => {
+    login.mutate(data);
   };
 
   return (
@@ -38,32 +45,42 @@ export function Login() {
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to your StudyWallet account</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <FormField<LoginInput>
+              label="Email"
+              name="email"
+              register={register}
+              errors={errors}
+              required
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  type="email"
+                  placeholder="m@example.com"
+                  {...register("email")}
+                />
+              )}
+            </FormField>
+            <FormField<LoginInput>
+              label="Password"
+              name="password"
+              register={register}
+              errors={errors}
+              required
+            >
+              {(fieldProps) => (
+                <Input
+                  {...fieldProps}
+                  type="password"
+                  {...register("password")}
+                />
+              )}
+            </FormField>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={login.isPending}>
+            <Button type="submit" className="w-full" disabled={!isValid || login.isPending}>
               {login.isPending ? "Signing in..." : "Sign in"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

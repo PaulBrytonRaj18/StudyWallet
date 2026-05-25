@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useSubjects, useCreateSubject, useDeleteSubject } from "@/hooks/useSubjects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +20,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreVertical, BookOpen, Trash2, Edit, BookMarked } from "lucide-react";
-
-const subjectIcons = ["BookOpen", "BookMarked", "Book", "Library", "GraduationCap"];
+import { Plus, MoreVertical, BookOpen, Trash2, BookMarked } from "lucide-react";
+import { FormField } from "@/components/ui/form";
+import { subjectCreateSchema, type SubjectCreateInput } from "@/lib/validation";
 
 export function Subjects() {
   const { data, isLoading } = useSubjects();
@@ -29,14 +30,26 @@ export function Subjects() {
   const deleteSubject = useDeleteSubject();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", color: "#6366f1" });
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<SubjectCreateInput>({
+    resolver: zodResolver(subjectCreateSchema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      description: "",
+      color: "#6366f1",
+    },
+  });
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    createSubject.mutate(form, {
+  const onCreate = (formData: SubjectCreateInput) => {
+    createSubject.mutate(formData, {
       onSuccess: () => {
         setOpen(false);
-        setForm({ name: "", description: "", color: "#6366f1" });
+        reset();
       },
     });
   };
@@ -63,39 +76,54 @@ export function Subjects() {
             <DialogHeader>
               <DialogTitle>Create Subject</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Physics"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desc">Description (optional)</Label>
-                <Input
-                  id="desc"
-                  placeholder="Subject description"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="color">Color</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.color}
-                    onChange={(e) => setForm({ ...form, color: e.target.value })}
-                    className="h-10 w-10 rounded-md border cursor-pointer"
+            <form onSubmit={handleSubmit(onCreate)} className="space-y-4">
+              <FormField<SubjectCreateInput>
+                label="Name"
+                name="name"
+                register={register}
+                errors={errors}
+                required
+              >
+                {(fieldProps) => (
+                  <Input
+                    {...fieldProps}
+                    placeholder="e.g., Physics"
+                    {...register("name")}
                   />
-                  <span className="text-sm text-muted-foreground">{form.color}</span>
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={createSubject.isPending}>
+                )}
+              </FormField>
+              <FormField<SubjectCreateInput>
+                label="Description (optional)"
+                name="description"
+                register={register}
+                errors={errors}
+              >
+                {(fieldProps) => (
+                  <Input
+                    {...fieldProps}
+                    placeholder="Subject description"
+                    {...register("description")}
+                  />
+                )}
+              </FormField>
+              <FormField<SubjectCreateInput>
+                label="Color"
+                name="color"
+                register={register}
+                errors={errors}
+              >
+                {(fieldProps) => (
+                  <div className="flex items-center gap-3">
+                    <input
+                      {...fieldProps}
+                      type="color"
+                      {...register("color")}
+                      className="h-10 w-10 rounded-md border cursor-pointer"
+                    />
+                  </div>
+                )}
+              </FormField>
+              <Button type="submit" className="w-full" disabled={!isValid || createSubject.isPending}>
                 {createSubject.isPending ? "Creating..." : "Create Subject"}
               </Button>
             </form>

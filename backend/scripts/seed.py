@@ -12,6 +12,7 @@ from app.utils.security import hash_password
 from app.models.user import User
 from app.models.subject import Subject
 from app.models.chapter import Chapter
+from app.constants.enums import ResourceType, ResourceStatus, Importance
 from app.models.resource import Resource, ResourceTag
 from app.models.note import Note
 from datetime import datetime
@@ -61,14 +62,14 @@ def seed():
 
         resources_data = {
             "Quantum Mechanics": [
-                {"title": "Introduction to QM", "resource_type": "pdf", "status": "completed", "url": None, "tags": ["quantum", "basics"]},
-                {"title": "Quantum Computing Explained", "resource_type": "youtube_link", "status": "studying", "url": "https://youtube.com/watch?v=example", "tags": ["quantum", "computing"]},
+                {"title": "Introduction to QM", "resource_type": ResourceType.PDF.value, "status": ResourceStatus.COMPLETED.value, "url": None, "tags": ["quantum", "basics"]},
+                {"title": "Quantum Computing Explained", "resource_type": ResourceType.YOUTUBE_LINK.value, "status": ResourceStatus.STUDYING.value, "url": "https://youtube.com/watch?v=example", "tags": ["quantum", "computing"]},
             ],
             "Thermodynamics": [
-                {"title": "Thermo Notes", "resource_type": "note", "status": "not_started", "url": None, "tags": ["thermo"]},
+                {"title": "Thermo Notes", "resource_type": ResourceType.NOTE.value, "status": ResourceStatus.NOT_STARTED.value, "url": None, "tags": ["thermo"]},
             ],
             "Calculus": [
-                {"title": "Khan Academy Calculus", "resource_type": "chatgpt_link", "status": "revision_pending", "url": "https://chat.openai.com/share/example", "tags": ["calculus"]},
+                {"title": "Khan Academy Calculus", "resource_type": ResourceType.CHATGPT_LINK.value, "status": ResourceStatus.REVISION_PENDING.value, "url": "https://chat.openai.com/share/example", "tags": ["calculus"]},
             ],
         }
 
@@ -89,7 +90,7 @@ def seed():
                         user_id=user.id,
                         subject_id=subject.id,
                         chapter_id=chapter.id,
-                        importance="normal",
+                        importance=Importance.NORMAL.value,
                     )
                     db.add(resource)
                     db.flush()

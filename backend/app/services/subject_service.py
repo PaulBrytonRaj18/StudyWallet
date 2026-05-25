@@ -82,7 +82,7 @@ class SubjectService:
         completed = self.db.query(Resource).filter(
             Resource.subject_id == subject_id,
             Resource.user_id == user_id,
-            Resource.status == "completed",
+            Resource.status == ResourceStatus.COMPLETED.value,
         ).count()
 
         return {

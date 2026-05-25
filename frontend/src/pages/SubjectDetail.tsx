@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useSubject } from "@/hooks/useSubjects";
 import { useChapters, useCreateChapter, useDeleteChapter } from "@/hooks/useChapters";
 import { useResources, useCreateResource, useDeleteResource, useUpdateResource, usePDFUpload } from "@/hooks/useResources";
@@ -8,7 +10,6 @@ import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -35,11 +36,11 @@ import {
   MessageSquare,
   StickyNote,
   Trash2,
-  Link as LinkIcon,
   ExternalLink,
-  MoreHorizontal,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { FormField } from "@/components/ui/form";
+import { chapterCreateSchema, resourceCreateSchema, type ChapterCreateInput, type ResourceCreateInput } from "@/lib/validation";
 import type { Resource, ResourceType, ResourceStatus } from "@/types";
 
 const resourceIcons: Record<string, React.ReactNode> = {
@@ -55,6 +56,10 @@ const statusColors: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
   revision_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
 };
+
+function isLinkType(type: string): boolean {
+  return type === "youtube_link" || type === "chatgpt_link";
+}
 
 export function SubjectDetail() {
   const { subjectId } = useParams<{ subjectId: string }>();
@@ -72,99 +77,110 @@ export function SubjectDetail() {
 
   const [chapterDialog, setChapterDialog] = useState(false);
   const [resourceDialog, setResourceDialog] = useState(false);
-  const [selectedChapter, setSelectedChapter] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFileError, setSelectedFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [chapterForm, setChapterForm] = useState({ name: "", description: "" });
-  const [resourceForm, setResourceForm] = useState({
-    title: "",
-    description: "",
-    resource_type: "note" as ResourceType,
-    status: "not_started" as ResourceStatus,
-    importance: "normal",
-    url: "",
-    chapter_id: "",
-    tags: "",
-  });
 
   const chapters = chaptersData?.chapters || [];
   const resources = resourcesData?.resources || [];
   const completedCount = resources.filter((r) => r.status === "completed").length;
 
-  const handleCreateChapter = (e: React.FormEvent) => {
-    e.preventDefault();
+  const chapterForm = useForm<ChapterCreateInput>({
+    resolver: zodResolver(chapterCreateSchema),
+    mode: "onChange",
+    defaultValues: { name: "", description: "" },
+  });
+
+  const resourceForm = useForm<ResourceCreateInput>({
+    resolver: zodResolver(resourceCreateSchema),
+    mode: "onChange",
+    defaultValues: {
+      title: "",
+      description: "",
+      resource_type: "note",
+      status: "not_started",
+      importance: "normal",
+      url: "",
+      chapter_id: "",
+      tags: "",
+    },
+  });
+
+  const watchedResourceType = resourceForm.watch("resource_type");
+
+  const handleCreateChapter = (formData: ChapterCreateInput) => {
     createChapter.mutate(
-      { subjectId: subjectId!, data: chapterForm },
+      { subjectId: subjectId!, data: formData },
       {
         onSuccess: () => {
           setChapterDialog(false);
-          setChapterForm({ name: "", description: "" });
+          chapterForm.reset();
         },
       }
     );
   };
 
-  const handleCreateResource = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (resourceForm.resource_type === "pdf") {
+  const handleCreateResource = (formData: ResourceCreateInput) => {
+    if (watchedResourceType === "pdf") {
       if (!selectedFile) {
-        toast.error("Please select a PDF file");
+        setSelectedFileError("Please select a PDF file");
         return;
       }
+      if (selectedFile.type !== "application/pdf") {
+        setSelectedFileError("File must be a PDF");
+        return;
+      }
+      if (selectedFile.size > 20 * 1024 * 1024) {
+        setSelectedFileError("File must be smaller than 20MB");
+        return;
+      }
+      setSelectedFileError(null);
       uploadPDF.mutate(
         {
           file: selectedFile,
           data: {
-            title: resourceForm.title,
+            title: formData.title,
             subject_id: subjectId!,
-            chapter_id: resourceForm.chapter_id || undefined,
-            description: resourceForm.description || undefined,
-            tags: resourceForm.tags,
-            importance: resourceForm.importance,
+            chapter_id: formData.chapter_id || undefined,
+            description: formData.description || undefined,
+            tags: typeof formData.tags === "string" ? formData.tags : "",
+            importance: formData.importance,
           },
         },
         {
           onSuccess: () => {
             setResourceDialog(false);
             setSelectedFile(null);
-            setResourceForm({
-              title: "",
-              description: "",
-              resource_type: "note",
-              status: "not_started",
-              importance: "normal",
-              url: "",
-              chapter_id: "",
-              tags: "",
-            });
+            resourceForm.reset();
             if (fileInputRef.current) fileInputRef.current.value = "";
           },
         }
       );
     } else {
+      const tags = Array.isArray(formData.tags)
+        ? formData.tags
+        : typeof formData.tags === "string" && formData.tags
+          ? formData.tags.split(",").map((t) => t.trim()).filter(Boolean)
+          : [];
+
+      if (isLinkType(watchedResourceType) && !formData.url) {
+        toast.error("URL is required for this resource type");
+        return;
+      }
+
       createResource.mutate(
         {
           subjectId: subjectId!,
           data: {
-            ...resourceForm,
+            ...formData,
             subject_id: subjectId!,
-            tags: resourceForm.tags ? resourceForm.tags.split(",").map((t) => t.trim()) : [],
+            tags,
           },
         },
         {
           onSuccess: () => {
             setResourceDialog(false);
-            setResourceForm({
-              title: "",
-              description: "",
-              resource_type: "note",
-              status: "not_started",
-              importance: "normal",
-              url: "",
-              chapter_id: "",
-              tags: "",
-            });
+            resourceForm.reset();
           },
         }
       );
@@ -246,12 +262,12 @@ export function SubjectDetail() {
               <DialogHeader>
                 <DialogTitle>Add Resource</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateResource} className="space-y-4">
+              <form onSubmit={resourceForm.handleSubmit(handleCreateResource)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Type</Label>
+                  <label className="text-sm font-medium leading-none">Type</label>
                   <Select
-                    value={resourceForm.resource_type}
-                    onValueChange={(v) => setResourceForm({ ...resourceForm, resource_type: v as ResourceType })}
+                    value={resourceForm.watch("resource_type")}
+                    onValueChange={(v) => resourceForm.setValue("resource_type", v as ResourceCreateInput["resource_type"])}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -264,35 +280,75 @@ export function SubjectDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input value={resourceForm.title} onChange={(e) => setResourceForm({ ...resourceForm, title: e.target.value })} required />
-                </div>
-                {resourceForm.resource_type === "pdf" ? (
+                <FormField<ResourceCreateInput>
+                  label="Title"
+                  name="title"
+                  register={resourceForm.register}
+                  errors={resourceForm.formState.errors}
+                  required
+                >
+                  {(fieldProps) => (
+                    <Input
+                      {...fieldProps}
+                      {...resourceForm.register("title")}
+                    />
+                  )}
+                </FormField>
+                {watchedResourceType === "pdf" ? (
                   <div className="space-y-2">
-                    <Label>PDF File</Label>
+                    <label className="text-sm font-medium leading-none">PDF File</label>
                     <Input
                       ref={fileInputRef}
                       type="file"
                       accept=".pdf,application/pdf"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      required
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setSelectedFile(file);
+                        if (file) {
+                          if (file.type !== "application/pdf") {
+                            setSelectedFileError("File must be a PDF");
+                          } else if (file.size > 20 * 1024 * 1024) {
+                            setSelectedFileError("File must be smaller than 20MB");
+                          } else {
+                            setSelectedFileError(null);
+                          }
+                        } else {
+                          setSelectedFileError(null);
+                        }
+                      }}
                     />
-                    {selectedFile && (
+                    {selectedFileError && (
+                      <p className="text-sm text-destructive" role="alert">{selectedFileError}</p>
+                    )}
+                    {selectedFile && !selectedFileError && (
                       <p className="text-xs text-muted-foreground">
                         {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(1)} MB)
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Label>URL ({resourceForm.resource_type === "note" ? "optional" : "required"})</Label>
-                    <Input value={resourceForm.url} onChange={(e) => setResourceForm({ ...resourceForm, url: e.target.value })} placeholder="https://" />
-                  </div>
+                  <FormField<ResourceCreateInput>
+                    label={isLinkType(watchedResourceType) ? "URL" : "URL (optional)"}
+                    name="url"
+                    register={resourceForm.register}
+                    errors={resourceForm.formState.errors}
+                    required={isLinkType(watchedResourceType)}
+                  >
+                    {(fieldProps) => (
+                      <Input
+                        {...fieldProps}
+                        placeholder="https://"
+                        {...resourceForm.register("url")}
+                      />
+                    )}
+                  </FormField>
                 )}
                 <div className="space-y-2">
-                  <Label>Chapter (optional)</Label>
-                  <Select value={resourceForm.chapter_id} onValueChange={(v) => setResourceForm({ ...resourceForm, chapter_id: v })}>
+                  <label className="text-sm font-medium leading-none">Chapter (optional)</label>
+                  <Select
+                    value={resourceForm.watch("chapter_id") || ""}
+                    onValueChange={(v) => resourceForm.setValue("chapter_id", v || undefined)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="No chapter" />
                     </SelectTrigger>
@@ -306,8 +362,11 @@ export function SubjectDetail() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select value={resourceForm.status} onValueChange={(v) => setResourceForm({ ...resourceForm, status: v as ResourceStatus })}>
+                    <label className="text-sm font-medium leading-none">Status</label>
+                    <Select
+                      value={resourceForm.watch("status")}
+                      onValueChange={(v) => resourceForm.setValue("status", v as ResourceCreateInput["status"])}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -320,8 +379,11 @@ export function SubjectDetail() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Importance</Label>
-                    <Select value={resourceForm.importance} onValueChange={(v) => setResourceForm({ ...resourceForm, importance: v })}>
+                    <label className="text-sm font-medium leading-none">Importance</label>
+                    <Select
+                      value={resourceForm.watch("importance")}
+                      onValueChange={(v) => resourceForm.setValue("importance", v as ResourceCreateInput["importance"])}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -333,10 +395,20 @@ export function SubjectDetail() {
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tags (comma separated)</Label>
-                  <Input value={resourceForm.tags} onChange={(e) => setResourceForm({ ...resourceForm, tags: e.target.value })} placeholder="quantum, physics" />
-                </div>
+                <FormField<ResourceCreateInput>
+                  label="Tags (comma separated)"
+                  name="tags"
+                  register={resourceForm.register}
+                  errors={resourceForm.formState.errors}
+                >
+                  {(fieldProps) => (
+                    <Input
+                      {...fieldProps}
+                      placeholder="quantum, physics"
+                      {...resourceForm.register("tags")}
+                    />
+                  )}
+                </FormField>
                 <Button type="submit" className="w-full" disabled={createResource.isPending || uploadPDF.isPending}>
                   {uploadPDF.isPending ? "Uploading..." : createResource.isPending ? "Adding..." : "Add Resource"}
                 </Button>
@@ -381,16 +453,35 @@ export function SubjectDetail() {
                 <DialogHeader>
                   <DialogTitle>Create Chapter</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleCreateChapter} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input value={chapterForm.name} onChange={(e) => setChapterForm({ ...chapterForm, name: e.target.value })} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description (optional)</Label>
-                    <Input value={chapterForm.description} onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })} />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={createChapter.isPending}>
+                <form onSubmit={chapterForm.handleSubmit(handleCreateChapter)} className="space-y-4">
+                  <FormField<ChapterCreateInput>
+                    label="Name"
+                    name="name"
+                    register={chapterForm.register}
+                    errors={chapterForm.formState.errors}
+                    required
+                  >
+                    {(fieldProps) => (
+                      <Input
+                        {...fieldProps}
+                        {...chapterForm.register("name")}
+                      />
+                    )}
+                  </FormField>
+                  <FormField<ChapterCreateInput>
+                    label="Description (optional)"
+                    name="description"
+                    register={chapterForm.register}
+                    errors={chapterForm.formState.errors}
+                  >
+                    {(fieldProps) => (
+                      <Input
+                        {...fieldProps}
+                        {...chapterForm.register("description")}
+                      />
+                    )}
+                  </FormField>
+                  <Button type="submit" className="w-full" disabled={!chapterForm.formState.isValid || createChapter.isPending}>
                     {createChapter.isPending ? "Creating..." : "Create Chapter"}
                   </Button>
                 </form>

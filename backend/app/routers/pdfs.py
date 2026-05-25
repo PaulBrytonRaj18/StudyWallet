@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
+from app.constants.enums import Importance
 from app.schemas.resource import ResourceResponse
 from app.services.pdf_service import PDFService
 from app.middleware.auth_middleware import get_current_user
@@ -19,7 +20,7 @@ def upload_pdf(
     chapter_id: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
-    importance: str = Form("normal"),
+    importance: str = Form(Importance.NORMAL.value),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
